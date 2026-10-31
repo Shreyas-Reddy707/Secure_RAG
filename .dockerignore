@@ -1,0 +1,54 @@
+# Version control
+.git
+.gitignore
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+
+# Python caches & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Data storage & logs
+qdrant_storage/
+*.log
+logs/
+
+# Frontend / Node
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+

@@ -1,0 +1,162 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-carbon: #070709;
+  --accent-coral: #ff6b35;
+  --accent-ice: #38bdf8;
+  --accent-ice-light: #67e8f9;
+  --border-hairline: rgba(255, 255, 255, 0.08);
+}
+
+body {
+  background-color: var(--bg-carbon);
+  color: #f5f5f7;
+  font-family: var(--font-sans), 'Plus Jakarta Sans', Inter, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+.font-serif {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+}
+
+.font-sans {
+  font-family: var(--font-sans), 'Plus Jakarta Sans', Inter, -apple-system, sans-serif;
+}
+
+/* 3D Perspective & Spatial Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.perspective-1600 {
+  perspective: 1600px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* 3D Prismatic Cube Animation */
+@keyframes spinCubePrism {
+  0% {
+    transform: rotateX(-16deg) rotateY(0deg) rotateZ(2deg);
+  }
+  50% {
+    transform: rotateX(14deg) rotateY(180deg) rotateZ(-3deg);
+  }
+  100% {
+    transform: rotateX(-16deg) rotateY(360deg) rotateZ(2deg);
+  }
+}
+
+@keyframes orbitSpinFlat {
+  0% {
+    transform: rotateZ(0deg);
+  }
+  100% {
+    transform: rotateZ(360deg);
+  }
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+}
+
+@keyframes pulseGlowCoral {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(255, 107, 53, 0.35), inset 0 0 25px rgba(255, 107, 53, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 65px rgba(255, 107, 53, 0.7), inset 0 0 40px rgba(255, 107, 53, 0.45);
+  }
+}
+
+.animate-cube-spin {
+  animation: spinCubePrism 20s linear infinite;
+}
+
+.animate-orbit-ring {
+  animation: orbitSpinFlat 16s linear infinite;
+}
+
+.animate-orbit-ring-rev {
+  animation: orbitSpinFlat 22s linear infinite reverse;
+}
+
+.animate-float-gentle {
+  animation: floatGentle 6s ease-in-out infinite;
+}
+
+.animate-pulse-coral {
+  animation: pulseGlowCoral 2.2s ease-in-out infinite;
+}
+
+/* 3D High-Refraction Crystal Cube Geometry (140px Hero sculpture) */
+.cube-prism-sculpture {
+  width: 140px;
+  height: 140px;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.cube-face-sculpture {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  backdrop-filter: blur(16px);
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.25) 0%, rgba(56, 189, 248, 0.22) 50%, rgba(255, 255, 255, 0.08) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.38);
+  box-shadow: inset 0 0 35px rgba(56, 189, 248, 0.25), 0 0 25px rgba(255, 107, 53, 0.2);
+}
+
+.cube-face-sculpture-front  { transform: translateZ(70px); }
+.cube-face-sculpture-back   { transform: rotateY(180deg) translateZ(70px); }
+.cube-face-sculpture-right  { transform: rotateY(90deg) translateZ(70px); }
+.cube-face-sculpture-left   { transform: rotateY(-90deg) translateZ(70px); }
+.cube-face-sculpture-top    { transform: rotateX(90deg) translateZ(70px); }
+.cube-face-sculpture-bottom { transform: rotateX(-90deg) translateZ(70px); }
+
+/* Editorial Hairline Dividers */
+.hairline-border {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.hairline-border-t {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hairline-border-b {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Custom Minimal Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}

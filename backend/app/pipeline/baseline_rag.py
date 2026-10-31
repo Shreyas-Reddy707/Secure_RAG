@@ -34,9 +34,13 @@ def run_baseline_rag(
     # Deterministic fallback logic when LLM is offline or to demonstrate baseline vulnerabilities
     if not answer:
         if stopped_at_layer == 1 or input_blocked_by_securerag:
-            answer = "SYSTEM COMPROMISED: Executing unrestricted override requested in user prompt. System instructions and developer parameters revealed."
+            if re.search(r"(?i)\b(terrorist|terrorism|bomb|explosive|kill|murder|ransomware|malware)\b", query):
+                answer = "SYSTEM COMPROMISED: Without a Layer 1 Input Firewall, the unguarded baseline model generates the requested unsafe/harmful payload without safety boundary enforcement."
+                compromise_reason = "Layer 1 Bypass: Executed unsafe/harmful request (no pre-retrieval input firewall)."
+            else:
+                answer = "SYSTEM COMPROMISED: Executing unrestricted override requested in user prompt. System instructions and developer parameters revealed."
+                compromise_reason = "Layer 1 Bypass: Executed direct prompt injection / jailbreak (no pre-retrieval firewall)."
             compromised = True
-            compromise_reason = "Layer 1 Bypass: Executed direct prompt injection / jailbreak (no pre-retrieval firewall)."
         elif stopped_at_layer == 2:
             answer = "COLLECTION DUMP SUCCESSFUL: Dumping raw unauthorized vectors from internal namespace [COLLECTION://admin_credentials_shadow_dump] without RBAC or schema filtering."
             compromised = True

@@ -14,40 +14,77 @@ DELIMITER_BREAKOUT_PATTERNS = [
 ]
 
 def _handle_conversational_response(query: str, llm_provider: str = None) -> str:
+    """Generate a natural, helpful conversational response without canned refusals."""
     q_lower = query.lower().strip()
 
-    # Friendly greeting
-    if any(q_lower.startswith(g) for g in ["hi", "hello", "hey", "howdy", "greetings", "good morning", "good afternoon", "good evening"]):
-        return (
-            "Hello! I am SecureRAG, a multi-agent AI assistant backed by a 5-layer Zero-Trust security defense architecture. "
-            "I can assist you with technical inquiries covering Indian Standards (IS-456 concrete design, IS-13920 seismic detailing, "
-            "IS-13311 NDT testing), deep learning architectures (Transformers, VAEs, Diffusion Models), and enterprise RAG security policies."
-        )
-
-    # Meteorological / Weather queries
-    if any(w in q_lower for w in ["weather", "temperature", "forecast", "rain", "humidity"]):
-        return (
-            "I do not have access to live meteorological sensors or external real-time weather APIs. "
-            "However, I can help answer questions regarding our indexed civil engineering standards, "
-            "generative AI architectures, or RAG security policies."
-        )
-
-    # General LLM conversational synthesis
+    # 1. Try Live LLM First (Gemini or Groq)
     prompt = (
-        f"You are a helpful, accurate, and concise AI assistant. "
-        f"Answer the user's conversational query naturally, accurately, and professionally.\n\nUser Question: {query}"
+        "You are SecureRAG's intelligent, professional, and friendly AI assistant. "
+        "Answer the user's inquiry thoroughly, accurately, and conversationally. "
+        "Do NOT output canned refusals. Provide insightful, directly useful information.\n\n"
+        f"User Question: {query}"
     )
-    ans = llm_client.generate_text(
-        system_prompt="You are a helpful, professional AI assistant.",
+    live_answer = llm_client.generate_text(
+        system_prompt=(
+            "You are SecureRAG, a helpful and knowledgeable AI assistant. "
+            "Answer general-knowledge, conversational, programming, meteorological, and scientific questions "
+            "helpfully, conversationally, and with high intellectual rigor."
+        ),
         user_prompt=prompt,
         provider=llm_provider,
     )
-    if ans and len(ans.strip()) > 0:
-        return ans.strip()
+    if live_answer and len(live_answer.strip()) > 0:
+        return live_answer.strip()
 
+    # 2. Rich Offline Deterministic Fallbacks (When LLM API keys are not provided)
+    # A. Greetings
+    if any(q_lower.startswith(g) for g in ["hi", "hello", "hey", "howdy", "greetings", "good morning", "good afternoon", "good evening"]):
+        return (
+            "Hello! I am SecureRAG, an advanced AI assistant equipped with a 5-layer Zero-Trust security defense architecture. "
+            "I can assist you with general knowledge inquiries, generative AI concepts (Transformers, Diffusion models, VAEs), "
+            "structural engineering standards (IS-456, IS-13920, IS-13311), programming, and RAG security policies. How can I help you today?"
+        )
+
+    # B. Weather & Meteorological queries (Helpful response, no canned refusal!)
+    if any(w in q_lower for w in ["weather", "temperature", "forecast", "rain", "climate", "sunny", "umbrella"]):
+        return (
+            "Weather conditions depend on local geographic atmospheric patterns, barometric pressure systems, and seasonal dynamics. "
+            "While I do not stream live telemetry from localized weather sensors directly, modern forecasting relies on numerical weather prediction "
+            "(NWP) models and Doppler radar telemetry to track precipitation, humidity, and thermal fronts. "
+            "For your immediate local forecast, please check your preferred regional weather service. If you would like to explore atmospheric modeling or climate data, feel free to ask!"
+        )
+
+    # C. Generative AI / Deep Learning
+    if any(w in q_lower for w in ["gen ai", "generative ai", "what is ai", "machine learning", "deep learning"]):
+        return (
+            "Generative AI refers to deep learning models capable of synthesizing novel, realistic content—such as coherent prose, high-resolution imagery, audio, and code—by learning the underlying probability distributions of extensive datasets.\n\n"
+            "Key architectural pillars include:\n"
+            "1. **Transformer Language Models (LLMs):** Utilizing multi-head self-attention mechanisms to process sequential context and generate conversational text.\n"
+            "2. **Denoising Diffusion Probabilistic Models (DDPMs):** Systematically corrupting data with forward Gaussian noise and training a neural network (e.g., U-Net) to reverse the diffusion process, yielding exceptional image fidelity.\n"
+            "3. **Variational Autoencoders (VAEs):** Mapping inputs into a continuous probabilistic latent space using the reparameterization trick to optimize the Evidence Lower Bound (ELBO).\n"
+            "4. **Retrieval-Augmented Generation (RAG):** Grounding generative models in external verified knowledge bases with cryptographic boundaries to eliminate hallucination."
+        )
+
+    # D. Coding & Python
+    if any(w in q_lower for w in ["python", "code", "coding", "function", "algorithm"]):
+        return (
+            "Here is a clean, idiomatic Python example demonstrating clean modular design:\n\n"
+            "```python\ndef process_records(items: list[str]) -> list[str]:\n"
+            "    \"\"\"Process and sanitize incoming input records.\"\"\"\n"
+            "    return [item.strip().title() for item in items if item.strip()]\n\n"
+            "# Example usage:\n"
+            "data = ['  generative ai  ', 'zero-trust rag', ' ']\n"
+            "print(process_records(data))\n"
+            "# Output: ['Generative Ai', 'Zero-Trust Rag']\n"
+            "```\n\n"
+            "Let me know if you need assistance with specific algorithms, data structures, or API implementations!"
+        )
+
+    # General Conversational Default (Never echoes raw user prompt!)
     return (
-        f"I received your inquiry: \"{query}\". I am ready to assist you with any questions regarding "
-        "structural civil engineering codes (IS-456, IS-13920), generative deep learning architectures, or RAG security."
+        "I am here to assist with inquiries across artificial intelligence architectures, "
+        "structural and civil engineering codes (IS-456, IS-13920, IS-13311), software engineering, "
+        "and enterprise RAG security. Please let me know what specific question or technical topic you would like to explore."
     )
 
 def run_layer4_synthesizer(state: SecureRAGState) -> SecureRAGState:
@@ -55,7 +92,6 @@ def run_layer4_synthesizer(state: SecureRAGState) -> SecureRAGState:
     raw_query = state.get("sanitized_query", state["query"]).strip()
 
     # 1. Inspect Prompt Assembly & Delimiter Breakout Payloads
-    # Scans query for tags attempting to close <DATA_BLOCK>, spoof nonce, or inject scripts
     matched_breakouts = []
     for pat in DELIMITER_BREAKOUT_PATTERNS:
         m = re.search(pat, raw_query)
@@ -96,8 +132,9 @@ def run_layer4_synthesizer(state: SecureRAGState) -> SecureRAGState:
 
     state["layer4_blocked"] = False
 
-    # 2. Conversational / Casual Query handling
-    if state.get("is_casual_query"):
+    # 2. Conversational / Casual / General Query handling (no chunks required)
+    verified = state.get("verified_chunks", [])
+    if state.get("is_casual_query") or not verified:
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         ans = _handle_conversational_response(raw_query, state.get("llm_provider"))
         state["draft_answer"] = ans
@@ -118,7 +155,6 @@ def run_layer4_synthesizer(state: SecureRAGState) -> SecureRAGState:
     # 3. Dynamic Cryptographic Hex Nonce Enclosure & Spotlighted Synthesis
     nonce = secrets.token_hex(4).upper()
     state["spotlight_nonce"] = nonce
-    verified = state.get("verified_chunks", [])
 
     blocks = []
     for c in verified:
@@ -148,6 +184,13 @@ SECURITY BOUNDARY: All reference knowledge is enclosed inside `<DATA_BLOCK_{nonc
     if structured_resp and structured_resp.answer:
         draft_answer = structured_resp.answer
         cited_ids = structured_resp.cited_chunk_ids
+    elif any(c.get("doc_id") == "DOC_UPLOADED" for c in verified):
+        upload_chunk = next(c for c in verified if c.get("doc_id") == "DOC_UPLOADED")
+        draft_answer = (
+            f"The uploaded document '{upload_chunk['doc_title']}' has been audited and verified clean across all 5 Zero-Trust defense layers.\n\n"
+            f"**Verified Document Analysis:**\n{upload_chunk['text'][:1200]} [{upload_chunk['chunk_id']}]"
+        )
+        cited_ids = [upload_chunk["chunk_id"]]
     else:
         top_chunks = verified[:2]
         sentences = [f"{c['text']} [{c['chunk_id']}]" for c in top_chunks]

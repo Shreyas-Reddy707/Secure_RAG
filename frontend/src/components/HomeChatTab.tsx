@@ -185,15 +185,12 @@ export default function HomeChatTab({
     reader.onload = async (event) => {
       const content = event.target?.result as string;
       if (!content) return;
-      try {
-        await injectPoisonChunk(file.name, content, "INDIRECT_INJECTION");
-        setToastMessage(`Document "${file.name}" ingested into Qdrant.`);
-        setTimeout(() => setToastMessage(null), 4000);
-        setInputQuery(`Summarize the contents and verification findings of ${file.name}`);
-      } catch (err) {
-        console.error(err);
-        alert("Failed to upload/ingest document into Qdrant.");
-      }
+
+      setToastMessage(`Auditing uploaded file "${file.name}" across 5 Zero-Trust defense layers...`);
+      setTimeout(() => setToastMessage(null), 4000);
+
+      const queryPayload = `[UPLOADED_DOCUMENT: ${file.name}]\n${content.slice(0, 1400)}`;
+      handleSendQuery(queryPayload);
     };
     reader.readAsText(file);
     e.target.value = "";

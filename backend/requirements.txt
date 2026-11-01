@@ -2,9 +2,9 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.0
-python-dotenv==1.0.1
-langgraph==0.2.60
-langchain-core==0.3.28
+python-dotenv==1.2.2
+langgraph==1.0.10rc1
+langchain-core==1.3.3
 google-genai==0.8.0
 groq==0.15.0
 qdrant-client[fastembed]>=1.14.2

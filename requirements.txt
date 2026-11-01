@@ -18,11 +18,11 @@ uvicorn[standard]==0.34.0
 # Settings & Environment Configuration
 pydantic==2.10.4
 pydantic-settings==2.7.0
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 
 # Multi-Agent Workflow & Orchestration Pipeline
-langgraph==0.2.60
-langchain-core==0.3.28
+langgraph==1.0.10rc1
+langchain-core==1.3.3
 
 # LLM Provider SDKs (Dynamic Multi-Model Failover & Live Synthesis)
 google-genai==0.8.0

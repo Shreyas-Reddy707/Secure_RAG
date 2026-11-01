@@ -37,6 +37,21 @@ class SynthesizedAnswerLLM(BaseModel):
         description="List of chunk IDs explicitly cited in the answer."
     )
 
+class SecurityClassificationLLM(BaseModel):
+    threat_level: Literal["L1_THREAT", "L2_THREAT", "L3_THREAT", "L4_THREAT", "L5_THREAT", "SAFE"] = Field(
+        description="The primary security classification of the input across 5 defense layers."
+    )
+    confidence: float = Field(
+        ge=0.0, le=1.0,
+        description="Confidence score (0.0 to 1.0) of the security classification."
+    )
+    reason: str = Field(
+        description="Detailed forensic explanation of why this classification was assigned."
+    )
+    category: str = Field(
+        description="Specific category e.g., 'VIOLENCE_TERRORISM', 'JAILBREAK', 'RBAC_TRAVERSAL', 'INDIRECT_INJECTION', 'DELIMITER_BREAKOUT', 'COMPLIANCE_FABRICATION', or 'BENIGN'."
+    )
+
 # ============================================================================
 # 2. Pipeline Telemetry & REST API Schemas
 # ============================================================================

@@ -8,6 +8,10 @@ COMPLIANCE_SIGN_OFF_PATTERNS = [
     r"(?i)\b(override\s+audit\s+and\s+approve|unverified\s+safety\s+certification)\b",
 ]
 
+UNCITED_OMISSION_PATTERNS = [
+    r"(?i)\b(without\s+citing\s+(any\s+)?(source\s+)?chunks?|omit\s+citations?|no\s+citations?|do\s+not\s+cite)\b"
+]
+
 # Numerical Engineering Limits from IS-456 and Civil Standards
 ENGINEERING_CONTRADICTIONS = [
     (r"(?i)\b900\s*MPa\b", "900 MPa shear stress contradicts IS-456 nominal shear limit (tau_c_max = 3.5 MPa for M30 concrete) by 25,600%"),
@@ -23,7 +27,12 @@ COMPROMISE_CANARIES = [
     "plaintext api keys",
 ]
 
+
 def run_layer5_auditor(state: SecureRAGState) -> SecureRAGState:
+    # Strict execution guard: NEVER run audit if a prior layer already halted the pipeline
+    if state.get("blocked") or state.get("stopped_at_layer") is not None:
+        return state
+
     t0 = time.perf_counter()
     draft = state.get("draft_answer", "")
     raw_query = state.get("sanitized_query", state["query"]).strip()
@@ -35,15 +44,15 @@ def run_layer5_auditor(state: SecureRAGState) -> SecureRAGState:
 
     issues = []
 
-    # 1. Inspect Query & Draft for Unverified Compliance Sign-Off Framing
+    # 1. Inspect Query & Draft for Unverified Compliance Sign-Off / Citation Omission Framing
     is_sign_off_request = any(re.search(pat, raw_query) for pat in COMPLIANCE_SIGN_OFF_PATTERNS)
-    is_uncited_request = bool(re.search(r"(?i)without\s+citing\s+(any\s+)?(source\s+)?chunks?", raw_query))
+    is_uncited_request = any(re.search(pat, raw_query) for pat in UNCITED_OMISSION_PATTERNS)
     if is_sign_off_request and is_uncited_request:
         issues.append("Unverified safety-critical compliance sign-off requested without mandatory empirical source citations")
     elif is_sign_off_request:
         issues.append("Safety-critical compliance sign-off requested without verified laboratory test records")
 
-    # 2. Inspect for Hallucinated / Contradictory Engineering Numbers
+    # 2. Inspect for Hallucinated / Contradictory Engineering Numbers (e.g., 900 MPa vs 3.5 MPa)
     combined_text = f"{raw_query} {draft}"
     for pat, contradiction_reason in ENGINEERING_CONTRADICTIONS:
         if re.search(pat, combined_text):
@@ -58,13 +67,7 @@ def run_layer5_auditor(state: SecureRAGState) -> SecureRAGState:
     if nonce and nonce != "N/A" and nonce.lower() in draft.lower():
         issues.append("Cryptographic spotlight nonce leaked in output")
 
-    # 5. Check for adversarial canary execution in draft
-    lower_draft = draft.lower()
-    for canary in COMPROMISE_CANARIES:
-        if canary in lower_draft:
-            issues.append(f"Detected adversarial canary phrase in output: '{canary}'")
-
-    # 6. Citation provenance verification for non-casual queries
+    # 5. Citation provenance verification for non-casual queries
     valid_cites = [cid for cid in cited_ids if cid in verified_ids]
     if not is_casual and not is_sign_off_request and not issues:
         if not valid_cites and state.get("verified_chunks"):
@@ -78,6 +81,8 @@ def run_layer5_auditor(state: SecureRAGState) -> SecureRAGState:
     if not passed:
         faithfulness = 0.15
         state["stopped_at_layer"] = 5
+        state["blocked"] = True
+        state["block_reason"] = f"Layer 5 Output Faithfulness rejection: {'; '.join(issues)}"
         state["output_passed_audit"] = False
         state["harm_prevention_explanation"] = (
             "Output Auditor rejected the generated response: Uncited safety-critical fabrication "

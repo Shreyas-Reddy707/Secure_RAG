@@ -6,18 +6,24 @@ from app.models.schemas import SynthesizedAnswerLLM
 from app.services.llm_client import llm_client
 
 DELIMITER_BREAKOUT_PATTERNS = [
+    # Raw delimiter breakouts
     r"(?i)(</DATA_BLOCK|</data_block|</untrusted_context|</context\s*>|</system\b|</SYSTEM|\[/?system\])",
+    # URL-encoded delimiter breakouts (%3C/DATA_BLOCK, %3c%2fdata_block, %3cscript, etc.)
+    r"(?i)(%3C%2Fdata_block|%3C/data_block|%3c%2f|%3cscript|%3c%2fscript)",
+    # Nonce escape & override tokens
     r"(?i)(nonce_override|bypass_nonce|escape_data_block|spoof_nonce|data_block_nonce_escape|nonce_escape)",
     r"(?i)(<\s*/?\s*data_block[_\w]*>)",
-    r"(?i)(<\s*script\b|javascript\s*:|]\s*\(\s*javascript\s*:|eval\s*\()",
+    # Script / XSS / CDATA / XML injection
+    r"(?i)(<\s*script\b|javascript\s*:|]\s*\(\s*javascript\s*:|eval\s*\(|]]>|<!\[CDATA\[)",
     r"(?i)(sandbox\s+breakout(\s+tag)?)",
 ]
 
+
 def _handle_conversational_response(query: str, llm_provider: str = None) -> str:
-    """Generate a natural, helpful conversational response without canned refusals."""
+    """Generate a natural conversational response via a single live LLM call."""
     q_lower = query.lower().strip()
 
-    # 1. Try Live LLM First (Gemini or Groq)
+    # 1. Single Live LLM call (Gemini or Groq)
     prompt = (
         "You are SecureRAG's intelligent, professional, and friendly AI assistant. "
         "Answer the user's inquiry thoroughly, accurately, and conversationally. "
@@ -37,7 +43,6 @@ def _handle_conversational_response(query: str, llm_provider: str = None) -> str
         return live_answer.strip()
 
     # 2. Rich Offline Deterministic Fallbacks (When LLM API keys are not provided)
-    # A. Greetings
     if any(q_lower.startswith(g) for g in ["hi", "hello", "hey", "howdy", "greetings", "good morning", "good afternoon", "good evening"]):
         return (
             "Hello! I am SecureRAG, an advanced AI assistant equipped with a 5-layer Zero-Trust security defense architecture. "
@@ -45,16 +50,12 @@ def _handle_conversational_response(query: str, llm_provider: str = None) -> str
             "structural engineering standards (IS-456, IS-13920, IS-13311), programming, and RAG security policies. How can I help you today?"
         )
 
-    # B. Weather & Meteorological queries (Helpful response, no canned refusal!)
     if any(w in q_lower for w in ["weather", "temperature", "forecast", "rain", "climate", "sunny", "umbrella"]):
         return (
             "Weather conditions depend on local geographic atmospheric patterns, barometric pressure systems, and seasonal dynamics. "
-            "While I do not stream live telemetry from localized weather sensors directly, modern forecasting relies on numerical weather prediction "
-            "(NWP) models and Doppler radar telemetry to track precipitation, humidity, and thermal fronts. "
-            "For your immediate local forecast, please check your preferred regional weather service. If you would like to explore atmospheric modeling or climate data, feel free to ask!"
+            "For localized real-time temperature, precipitation, and barometric telemetry, please consult your regional weather forecasting provider."
         )
 
-    # C. Generative AI / Deep Learning
     if any(w in q_lower for w in ["gen ai", "generative ai", "what is ai", "machine learning", "deep learning"]):
         return (
             "Generative AI refers to deep learning models capable of synthesizing novel, realistic content—such as coherent prose, high-resolution imagery, audio, and code—by learning the underlying probability distributions of extensive datasets.\n\n"
@@ -65,7 +66,6 @@ def _handle_conversational_response(query: str, llm_provider: str = None) -> str
             "4. **Retrieval-Augmented Generation (RAG):** Grounding generative models in external verified knowledge bases with cryptographic boundaries to eliminate hallucination."
         )
 
-    # D. Coding & Python
     if any(w in q_lower for w in ["python", "code", "coding", "function", "algorithm"]):
         return (
             "Here is a clean, idiomatic Python example demonstrating clean modular design:\n\n"
@@ -76,22 +76,25 @@ def _handle_conversational_response(query: str, llm_provider: str = None) -> str
             "data = ['  generative ai  ', 'zero-trust rag', ' ']\n"
             "print(process_records(data))\n"
             "# Output: ['Generative Ai', 'Zero-Trust Rag']\n"
-            "```\n\n"
-            "Let me know if you need assistance with specific algorithms, data structures, or API implementations!"
+            "```"
         )
 
-    # General Conversational Default (Never echoes raw user prompt!)
     return (
-        "I am here to assist with inquiries across artificial intelligence architectures, "
-        "structural and civil engineering codes (IS-456, IS-13920, IS-13311), software engineering, "
-        "and enterprise RAG security. Please let me know what specific question or technical topic you would like to explore."
+        "In modern computational and scientific systems, effective solutions rely on "
+        "disciplined principles, robust domain grounding, and empirical verification. "
+        "Detailed insights can be provided based on your exact focus area."
     )
 
+
 def run_layer4_synthesizer(state: SecureRAGState) -> SecureRAGState:
+    # Strict execution guard: NEVER run synthesis if a prior layer already halted the pipeline
+    if state.get("blocked") or state.get("stopped_at_layer") is not None:
+        return state
+
     t0 = time.perf_counter()
     raw_query = state.get("sanitized_query", state["query"]).strip()
 
-    # 1. Inspect Prompt Assembly & Delimiter Breakout Payloads
+    # 1. Instant (<1ms) Delimiter Breakout & Sandbox Escape Inspection (Raw & URL-encoded)
     matched_breakouts = []
     for pat in DELIMITER_BREAKOUT_PATTERNS:
         m = re.search(pat, raw_query)
@@ -108,7 +111,9 @@ def run_layer4_synthesizer(state: SecureRAGState) -> SecureRAGState:
     if matched_breakouts:
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         state["layer4_blocked"] = True
+        state["blocked"] = True
         state["stopped_at_layer"] = 4
+        state["block_reason"] = f"Cryptographic delimiter / nonce breakout attempt: {', '.join(matched_breakouts)}"
         state["harm_prevention_explanation"] = (
             "Intercepted cryptographic delimiter breakout attempt and untrusted script injection. "
             f"Detected boundary escape tokens: {', '.join(matched_breakouts)}. "
@@ -135,8 +140,8 @@ def run_layer4_synthesizer(state: SecureRAGState) -> SecureRAGState:
     # 2. Conversational / Casual / General Query handling (no chunks required)
     verified = state.get("verified_chunks", [])
     if state.get("is_casual_query") or not verified:
-        latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         ans = _handle_conversational_response(raw_query, state.get("llm_provider"))
+        latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         state["draft_answer"] = ans
         state["cited_chunk_ids"] = []
         state["spotlight_nonce"] = "N/A"
@@ -152,7 +157,7 @@ def run_layer4_synthesizer(state: SecureRAGState) -> SecureRAGState:
         })
         return state
 
-    # 3. Dynamic Cryptographic Hex Nonce Enclosure & Spotlighted Synthesis
+    # 3. Dynamic Cryptographic Hex Nonce Enclosure & Single Spotlighted Synthesis Call
     nonce = secrets.token_hex(4).upper()
     state["spotlight_nonce"] = nonce
 
